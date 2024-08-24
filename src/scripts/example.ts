@@ -1,13 +1,39 @@
-import { z } from 'zod';
+import { createHash } from 'crypto';
 
-const User = z.object({
-  name: z.string(),
-  age: z.number().min(0).max(120)
-});
+type ResponseProps = {
+  str_cd: string;
+  str_name: string;
+  lati: string;
+  longi: string;
+  zaiko: string;
+};
 
-const user = User.parse({
-  name: 'Alice',
-  age: 25
-});
+export const getZaiko = async (jan: string): Promise<ResponseProps[]> => {
+  const md5 = (text: string): string => createHash('md5').update(text).digest('hex');
 
-console.log(user);
+  const str_cd = '001191'; // 戸越銀座
+  const request_datetime = new Date().toLocaleString('sv').replaceAll(/-|:/g, '').replace(' ', ':');
+  const response = await fetch('https://zaikoapp.plat.daisojapan.com/api_get_nearby_store', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept-Language': 'ja',
+      'User-Agent': 'daiso/1.0.1.2 CFNetwork/1335.0.3 Darwin/21.6.0',
+      'Connection': 'keep-alive',
+      'Accept': '*/*'
+    },
+    body: JSON.stringify({
+      access_key: md5(`${request_datetime}daiso_zaiko_api${str_cd}`),
+      crp_cd: 'daiso',
+      request_datetime,
+      detail: [
+        { sku_cd: jan, str_cd }
+      ]
+    })
+  }).then(result => result.json());
+  return response['body']['result']['detail'][0]['inventory'];
+};
+
+// getZaiko('4550480010847')
+//   .then(result => console.log(result))
+//   .catch(error => console.error('エラー', error));
